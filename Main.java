@@ -43,6 +43,7 @@ public class Main {
     private static void handleAddParcel() {
         System.out.println("--- Add Parcel ---");
         int typeChoice = promptParcelType();
+        System.out.println();
 
         String trackingNumber = promptValidTrackingNumber();
         String receiverName = promptValidReceiverName();
@@ -63,14 +64,14 @@ public class Main {
                     int pages = promptValidPages();
                     parcel = new DocumentParcel(trackingNumber, receiverName, weight, pages);
                 } else if (typeChoice == 2) {
-                    int length = promptValidDimension("Length (cm): ", "Length");
-                    int width = promptValidDimension("Width (cm): ", "Width");
-                    int height = promptValidDimension("Height (cm): ", "Height");
+                    int length = promptValidDimension("Enter Length (cm): ", "Length");
+                    int width = promptValidDimension("Enter Width (cm): ", "Width");
+                    int height = promptValidDimension("Enter Height (cm): ", "Height");
                     parcel = new BoxParcel(trackingNumber, receiverName, weight, length, width, height);
                 } else if (typeChoice == 3) {
-                    int length = promptValidDimension("Length (cm): ", "Length");
-                    int width = promptValidDimension("Width (cm): ", "Width");
-                    int height = promptValidDimension("Height (cm): ", "Height");
+                    int length = promptValidDimension("Enter Length (cm): ", "Length");
+                    int width = promptValidDimension("Enter Width (cm): ", "Width");
+                    int height = promptValidDimension("Enter Height (cm): ", "Height");
                     String handlingNote = promptValidHandlingNote();
                     parcel = new FragileParcel(trackingNumber, receiverName, weight, length, width, height, handlingNote);
                 }
@@ -79,6 +80,7 @@ public class Main {
             }
         }
 
+        System.out.println();
         // Select delivery service (loop if Same Day is not allowed)
         while (true) {
             DeliveryServiceStrategy strategy = promptDeliveryServiceStrategy();
@@ -87,11 +89,13 @@ public class Main {
                 break;
             } catch (InvalidDeliveryServiceException | InvalidParcelDataException e) {
                 System.out.println(e.getMessage());
+                System.out.println();
             }
         }
 
         try {
             parcelManager.addParcel(parcel);
+            System.out.println();
             System.out.printf("Parcel added successfully! Delivery fee: Php %.2f%n", parcel.calculateDeliveryFee());
         } catch (DuplicateTrackingNumberException e) {
             System.out.println(e.getMessage());
@@ -107,23 +111,54 @@ public class Main {
             return;
         }
 
-        String headerFormat = "| %-10s | %-10s | %-18s | %-17s | %-10s | %-14s | %-10s |%n";
-        String rowFormat = "| %-10s | %-10s | %-18s | %14.2f kg | %-10s | Php %10.2f | %-10s |%n";
-        String separator = "+------------+------------+--------------------+-------------------+------------+----------------+------------+";
+        String[] headers = {
+                "Tracking #", "Type", "Receiver", "Chargeable Weight", "Service", "Delivery Fee", "Status"
+        };
+
+        int[] widths = new int[headers.length];
+        for (int i = 0; i < headers.length; i++) {
+            widths[i] = headers[i].length();
+        }
+
+        for (Parcel parcel : parcels) {
+            String weightStr = String.format("%.2f kg", parcel.calculateChargeableWeight());
+            String feeStr = String.format("Php %.2f", parcel.calculateDeliveryFee());
+
+            widths[0] = Math.max(widths[0], parcel.getTrackingNumber().length());
+            widths[1] = Math.max(widths[1], parcel.getParcelType().length());
+            widths[2] = Math.max(widths[2], parcel.getReceiverName().length());
+            widths[3] = Math.max(widths[3], weightStr.length());
+            widths[4] = Math.max(widths[4], parcel.getDeliveryService().getServiceName().length());
+            widths[5] = Math.max(widths[5], feeStr.length());
+            widths[6] = Math.max(widths[6], parcel.getStatus().getDisplayName().length());
+        }
+
+        StringBuilder separatorBuilder = new StringBuilder("+");
+        StringBuilder rowFormatBuilder = new StringBuilder("|");
+        for (int width : widths) {
+            separatorBuilder.append("-".repeat(width + 2)).append("+");
+            rowFormatBuilder.append(" %-").append(width).append("s |");
+        }
+        rowFormatBuilder.append("%n");
+
+        String separator = separatorBuilder.toString();
+        String rowFormat = rowFormatBuilder.toString();
 
         System.out.println(separator);
-        System.out.printf(headerFormat,
-                "Tracking #", "Type", "Receiver", "Chargeable Weight", "Service", "Delivery Fee", "Status");
+        System.out.printf(rowFormat, (Object[]) headers);
         System.out.println(separator);
 
         for (Parcel parcel : parcels) {
+            String weightStr = String.format("%.2f kg", parcel.calculateChargeableWeight());
+            String feeStr = String.format("Php %.2f", parcel.calculateDeliveryFee());
+
             System.out.printf(rowFormat,
                     parcel.getTrackingNumber(),
                     parcel.getParcelType(),
-                    truncate(parcel.getReceiverName(), 18),
-                    parcel.calculateChargeableWeight(),
+                    parcel.getReceiverName(),
+                    weightStr,
                     parcel.getDeliveryService().getServiceName(),
-                    parcel.calculateDeliveryFee(),
+                    feeStr,
                     parcel.getStatus().getDisplayName());
         }
         System.out.println(separator);
@@ -142,12 +177,15 @@ public class Main {
             return;
         }
 
+        System.out.println();
         DeliveryServiceStrategy newStrategy = promptDeliveryServiceStrategy();
         try {
             parcel.setDeliveryService(newStrategy);
+            System.out.println();
             System.out.printf("Delivery service changed! New fee: Php %.2f%n", parcel.calculateDeliveryFee());
         } catch (InvalidDeliveryServiceException | InvalidParcelDataException e) {
             // The parcel keeps its old service
+            System.out.println();
             System.out.println(e.getMessage());
         }
     }
@@ -176,6 +214,7 @@ public class Main {
                 return choice;
             }
             System.out.println("Invalid parcel type! Please select 1, 2, or 3.");
+            System.out.println();
         }
     }
 
@@ -196,7 +235,10 @@ public class Main {
                 case 3 -> {
                     return new SameDayDeliveryStrategy();
                 }
-                default -> System.out.println("Invalid delivery service! Please select 1, 2, or 3.");
+                default -> {
+                    System.out.println("Invalid delivery service! Please select 1, 2, or 3.");
+                    System.out.println();
+                }
             }
         }
     }
@@ -298,12 +340,5 @@ public class Main {
                 System.out.println("Invalid input! Please enter a valid decimal number.");
             }
         }
-    }
-
-    private static String truncate(String text, int maxLength) {
-        if (text == null || text.length() <= maxLength) {
-            return text;
-        }
-        return text.substring(0, maxLength - 3) + "...";
     }
 }
